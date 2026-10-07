@@ -7,6 +7,7 @@
   const AUTH_REDIRECT_URL = "https://pos-demo-roan-six.vercel.app";
   const byId = id => document.getElementById(id);
   let signupMode = false;
+  const resendBtn = byId("resendVerification");
 
   const setMessage = (message, type="") => {
     const el = byId("authMessage");
@@ -21,8 +22,7 @@
     const title = byId("authTitle");
     const subtitle = byId("authSubtitle");
     const submit = byId("authSubmit");
-    const resendBtn = byId("resendVerification");
-  const switchBtn = byId("authSwitch");
+    const switchBtn = byId("authSwitch");
     if (!nameField || !title || !subtitle || !submit || !switchBtn) return;
     nameField.classList.toggle("hidden", !signupMode);
     title.textContent = signupMode ? "Create your POS account" : "Welcome back";
