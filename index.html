@@ -1,198 +1,30 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Modern retail POS dashboard" />
-  <title>RetailFlow POS</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
-  <div class="app-shell">
-    <aside class="sidebar" id="sidebar">
-      <div class="brand">
-        <div class="brand-mark">RF</div>
-        <div>
-          <strong>RetailFlow</strong>
-          <span>Point of Sale</span>
-        </div>
-      </div>
-
-      <nav class="nav">
-        <button class="nav-item active"><span>⌂</span> Dashboard</button>
-        <button class="nav-item"><span>▣</span> New Sale</button>
-        <button class="nav-item"><span>◫</span> Products</button>
-        <button class="nav-item"><span>▤</span> Inventory</button>
-        <button class="nav-item"><span>◉</span> Customers</button>
-        <button class="nav-item"><span>◔</span> Reports</button>
-      </nav>
-
-      <div class="sidebar-bottom">
-        <div class="store-card">
-          <div class="store-icon">₹</div>
-          <div>
-            <strong>City Mart</strong>
-            <span>Chittoor • Counter 01</span>
-          </div>
-        </div>
-        <button class="nav-item muted"><span>⚙</span> Settings</button>
-        <div class="profile">
-          <div class="avatar">VR</div>
-          <div>
-            <strong>Cashier VR</strong>
-            <span>Online</span>
-          </div>
-          <span class="online-dot"></span>
-        </div>
-      </div>
-    </aside>
-
-    <main class="main">
-      <header class="topbar">
-        <button class="mobile-menu" id="mobileMenu">☰</button>
-        <div>
-          <h1>Sales Dashboard</h1>
-          <p>Wednesday, 07 October 2026</p>
-        </div>
-        <div class="topbar-actions">
-          <button class="icon-btn" title="Notifications">◌</button>
-          <button class="outline-btn" id="newSaleBtn">+ New Sale</button>
-        </div>
-      </header>
-
-      <section class="stats-grid">
-        <article class="stat-card">
-          <div class="stat-head"><span>Today's Sales</span><span class="stat-icon">₹</span></div>
-          <div class="stat-value">₹24,680</div>
-          <div class="trend positive">↗ 12.8% <span>vs yesterday</span></div>
-        </article>
-        <article class="stat-card">
-          <div class="stat-head"><span>Transactions</span><span class="stat-icon">#</span></div>
-          <div class="stat-value">186</div>
-          <div class="trend positive">↗ 8.4% <span>vs yesterday</span></div>
-        </article>
-        <article class="stat-card">
-          <div class="stat-head"><span>Avg. Order Value</span><span class="stat-icon">◈</span></div>
-          <div class="stat-value">₹1,327</div>
-          <div class="trend positive">↗ 4.2% <span>vs yesterday</span></div>
-        </article>
-        <article class="stat-card">
-          <div class="stat-head"><span>Low Stock Items</span><span class="stat-icon warning">!</span></div>
-          <div class="stat-value">14</div>
-          <div class="trend warning-text">Needs attention <span>in inventory</span></div>
-        </article>
-      </section>
-
-      <section class="workspace">
-        <div class="catalog-panel panel">
-          <div class="panel-header">
-            <div>
-              <h2>Quick Sale</h2>
-              <p>Select a product to add it to the bill.</p>
-            </div>
-            <label class="search-box">
-              <span>⌕</span>
-              <input id="searchInput" type="search" placeholder="Search products or SKU..." />
-              <kbd>Ctrl K</kbd>
-            </label>
-          </div>
-
-          <div class="category-row" id="categories">
-            <button class="category active" data-category="All">All</button>
-            <button class="category" data-category="Grocery">Grocery</button>
-            <button class="category" data-category="Beverages">Beverages</button>
-            <button class="category" data-category="Snacks">Snacks</button>
-            <button class="category" data-category="Personal Care">Personal Care</button>
-          </div>
-
-          <div class="product-grid" id="productGrid"></div>
-        </div>
-
-        <aside class="cart-panel panel">
-          <div class="cart-header">
-            <div>
-              <h2>Current Bill</h2>
-              <p id="itemCountLabel">0 items</p>
-            </div>
-            <button class="text-btn" id="clearCart">Clear all</button>
-          </div>
-
-          <div class="customer-strip">
-            <div class="customer-avatar">G</div>
-            <div class="customer-copy">
-              <strong>Walk-in Customer</strong>
-              <span>+ Add customer</span>
-            </div>
-            <button class="icon-btn small">›</button>
-          </div>
-
-          <div class="cart-items" id="cartItems">
-            <div class="empty-state" id="emptyState">
-              <div class="empty-icon">🛒</div>
-              <strong>Your cart is empty</strong>
-              <span>Add products from the left to start a sale.</span>
-            </div>
-          </div>
-
-          <div class="bill-summary">
-            <div><span>Subtotal</span><strong id="subtotal">₹0</strong></div>
-            <div><span>Discount</span><button class="discount-btn" id="discountBtn">Add discount</button></div>
-            <div><span>GST <small>(included where applicable)</small></span><strong id="gst">₹0</strong></div>
-            <div class="total-row"><span>Total</span><strong id="total">₹0</strong></div>
-          </div>
-
-          <div class="payment-methods">
-            <span class="section-label">Payment method</span>
-            <div class="payment-grid" id="paymentGrid">
-              <button class="payment active" data-payment="Cash"><span>₹</span> Cash</button>
-              <button class="payment" data-payment="UPI"><span>⌁</span> UPI</button>
-              <button class="payment" data-payment="Card"><span>▣</span> Card</button>
-            </div>
-          </div>
-
-          <button class="checkout-btn" id="checkoutBtn">Complete Payment <span>→</span></button>
-        </aside>
-      </section>
-
-      <section class="lower-grid">
-        <div class="panel table-panel">
-          <div class="panel-header compact">
-            <div><h2>Recent Transactions</h2><p>Latest sales from this counter</p></div>
-            <button class="text-btn">View all →</button>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Invoice</th><th>Customer</th><th>Amount</th><th>Method</th><th>Status</th></tr></thead>
-              <tbody>
-                <tr><td>#RF-10482</td><td>Walk-in</td><td>₹840</td><td>UPI</td><td><span class="status paid">Paid</span></td></tr>
-                <tr><td>#RF-10481</td><td>Anjali R.</td><td>₹2,160</td><td>Card</td><td><span class="status paid">Paid</span></td></tr>
-                <tr><td>#RF-10480</td><td>Walk-in</td><td>₹560</td><td>Cash</td><td><span class="status paid">Paid</span></td></tr>
-                <tr><td>#RF-10479</td><td>Rahul K.</td><td>₹1,320</td><td>UPI</td><td><span class="status pending">Refund</span></td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="panel stock-panel">
-          <div class="panel-header compact">
-            <div><h2>Stock Alerts</h2><p>Products running low</p></div>
-            <span class="alert-count">4 alerts</span>
-          </div>
-          <div class="stock-list">
-            <div class="stock-row"><div class="product-mini orange">AT</div><div class="stock-copy"><strong>Aashirvaad Atta 5kg</strong><span>SKU AT-5001</span></div><span class="stock-low">8 left</span></div>
-            <div class="stock-row"><div class="product-mini blue">MI</div><div class="stock-copy"><strong>Milk 1L</strong><span>SKU ML-1002</span></div><span class="stock-low">5 left</span></div>
-            <div class="stock-row"><div class="product-mini green">SK</div><div class="stock-copy"><strong>Surf Excel 1kg</strong><span>SKU SX-1820</span></div><span class="stock-low">6 left</span></div>
-            <div class="stock-row"><div class="product-mini purple">BR</div><div class="stock-copy"><strong>Bournvita 500g</strong><span>SKU BV-4010</span></div><span class="stock-low">9 left</span></div>
-          </div>
-        </div>
-      </section>
-    </main>
-  </div>
-
-  <div class="toast" id="toast"></div>
-  <script src="app.js"></script>
-</body>
-</html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="description" content="RetailFlow POS"><title>RetailFlow POS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+</head><body>
+<div id="authScreen" class="auth-screen"><div class="auth-card">
+<div class="brand auth-brand"><div class="brand-mark">RF</div><div><strong>RetailFlow</strong><span>Point of Sale</span></div></div>
+<h1 id="authTitle">Welcome back</h1><p id="authSubtitle">Sign in to open your POS counter.</p>
+<form id="authForm" class="auth-form"><label id="nameField" class="hidden">Full name<input id="authName" type="text" placeholder="Cashier name"></label>
+<label>Email<input id="authEmail" type="email" placeholder="you@example.com" required></label>
+<label>Password<input id="authPassword" type="password" placeholder="••••••••" minlength="6" required></label>
+<button class="checkout-btn" type="submit" id="authSubmit">Sign in <span>→</span></button></form>
+<button class="auth-switch" id="authSwitch" data-signup="1">Create a new account</button>
+<div class="auth-note">POS data is protected by Supabase authentication and Row Level Security.</div>
+<div id="authMessage" class="form-message"></div></div></div>
+<div class="app-shell hidden" id="appShell"><aside class="sidebar" id="sidebar">
+<div class="brand"><div class="brand-mark">RF</div><div><strong>RetailFlow</strong><span>Point of Sale</span></div></div>
+<nav class="nav" id="nav"><button class="nav-item active" data-view="dashboard"><span>⌂</span> Dashboard</button><button class="nav-item" data-view="sale"><span>▣</span> New Sale</button><button class="nav-item" data-view="products"><span>◫</span> Products</button><button class="nav-item" data-view="inventory"><span>▤</span> Inventory</button><button class="nav-item" data-view="customers"><span>◉</span> Customers</button><button class="nav-item" data-view="reports"><span>◔</span> Reports</button></nav>
+<div class="sidebar-bottom"><div class="store-card"><div class="store-icon">₹</div><div><strong>City Mart</strong><span>Chittoor • Counter 01</span></div></div>
+<button class="nav-item muted" data-view="settings"><span>⚙</span> Settings</button><div class="profile"><div class="avatar" id="profileAvatar">RF</div><div><strong id="profileName">Cashier</strong><span id="profileRole">Online</span></div><span class="online-dot"></span></div>
+<button class="nav-item muted" id="signOutBtn"><span>↪</span> Sign out</button></div></aside>
+<main class="main"><header class="topbar"><div class="topbar-left"><button class="mobile-menu" id="mobileMenu">☰</button><div><h1 id="pageTitle">Sales Dashboard</h1><p id="pageSubtitle">Today at a glance</p></div></div>
+<div class="topbar-actions"><button class="icon-btn" id="refreshBtn">↻</button><button class="outline-btn" id="topNewSale">+ New Sale</button></div></header><div id="appView"></div></main></div>
+<div class="modal-backdrop hidden" id="modalBackdrop"><div class="modal" id="modal"></div></div><div class="toast" id="toast"></div>
+<script src="app.js"></script></body></html>
