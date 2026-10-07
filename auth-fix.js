@@ -93,6 +93,11 @@
         let message = error?.message || "Authentication failed.";
         if (/already registered|user already registered/i.test(message)) {
           message = "This email is already registered. Use Sign in instead.";
+          if (resendBtn) resendBtn.classList.remove("hidden");
+        }
+        if (/email not confirmed|email_not_confirmed/i.test(message)) {
+          message = "Your email is not confirmed yet. Use the button below to send a new verification email.";
+          if (resendBtn) resendBtn.classList.remove("hidden");
         }
         setMessage(message, "error");
       } finally {
