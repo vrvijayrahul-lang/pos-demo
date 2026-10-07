@@ -3,6 +3,8 @@
   const supabaseKey = window.POS_SUPABASE_KEY;
   if (!window.supabase || !supabaseUrl || !supabaseKey) return;
   const client = window.supabase.createClient(supabaseUrl, supabaseKey);
+  // Always return confirmed users to the live POS, even when signup was initiated from localhost.
+  const AUTH_REDIRECT_URL = "https://pos-demo-roan-six.vercel.app";
   const byId = id => document.getElementById(id);
   let signupMode = false;
 
@@ -65,7 +67,7 @@
             password,
             options: {
               data: { full_name: name },
-              emailRedirectTo: window.location.origin
+              emailRedirectTo: AUTH_REDIRECT_URL
             }
           });
 
@@ -99,5 +101,9 @@
     };
   }
 
+  // If Supabase returns the browser to the app with a session in the URL, let the client restore it.
+  client.auth.getSession().then(({ data }) => {
+    if (data?.session && typeof window.boot === "function") window.boot(data.session.user);
+  });
   setMode(false);
 })();
