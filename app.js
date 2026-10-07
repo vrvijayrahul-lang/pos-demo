@@ -1,153 +1,41 @@
-const products = [
-  {id:1,name:"Aashirvaad Atta 5kg",sku:"AT-5001",category:"Grocery",price:295,stock:8,tag:"AA",className:"orange"},
-  {id:2,name:"Tata Salt 1kg",sku:"TS-1001",category:"Grocery",price:31,stock:45,tag:"TS",className:"blue"},
-  {id:3,name:"Amul Milk 1L",sku:"ML-1002",category:"Beverages",price:68,stock:5,tag:"AM",className:"blue"},
-  {id:4,name:"Coca-Cola 750ml",sku:"CC-7503",category:"Beverages",price:48,stock:23,tag:"CC",className:"red"},
-  {id:5,name:"Lays Magic Masala",sku:"LY-1102",category:"Snacks",price:20,stock:61,tag:"LY",className:"yellow"},
-  {id:6,name:"Good Day Cookies",sku:"GD-1801",category:"Snacks",price:35,stock:32,tag:"GD",className:"orange"},
-  {id:7,name:"Surf Excel 1kg",sku:"SX-1820",category:"Grocery",price:145,stock:6,tag:"SX",className:"green"},
-  {id:8,name:"Bournvita 500g",sku:"BV-4010",category:"Beverages",price:229,stock:9,tag:"BV",className:"purple"},
-  {id:9,name:"Colgate MaxFresh",sku:"CG-2201",category:"Personal Care",price:112,stock:28,tag:"CG",className:"red"},
-  {id:10,name:"Dove Soap 100g",sku:"DV-1090",category:"Personal Care",price:58,stock:36,tag:"DV",className:"blue"},
-  {id:11,name:"Thums Up 750ml",sku:"TU-7501",category:"Beverages",price:48,stock:19,tag:"TU",className:"red"},
-  {id:12,name:"Parle-G Biscuits",sku:"PG-1902",category:"Snacks",price:10,stock:88,tag:"PG",className:"orange"}
-];
 
-const cart = new Map();
-let activeCategory = "All";
-let payment = "Cash";
-let discount = 0;
+const {createClient}=window.supabase; const db=createClient(window.POS_SUPABASE_URL,window.POS_SUPABASE_KEY);
+let user=null,profile=null,products=[],categories=[],customers=[],sales=[],cart={},customer=null,payment='Cash',discount=0,view='dashboard',activeCat='All';
+const $=id=>document.getElementById(id),money=n=>'₹'+Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:2}),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])),initials=s=>(String(s||'').trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'RF');
+function toast(m){$('toast').textContent=m;$('toast').classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>$('toast').classList.remove('show'),2500)}
+function modal(h){$('modal').innerHTML=h;$('modalBackdrop').classList.remove('hidden')} function closeModal(){$('modalBackdrop').classList.add('hidden')}
+$('modalBackdrop').onclick=e=>{if(e.target===$('modalBackdrop'))closeModal()};
 
-const productGrid = document.getElementById("productGrid");
-const cartItems = document.getElementById("cartItems");
-const searchInput = document.getElementById("searchInput");
-const toast = document.getElementById("toast");
+function authMode(signup){$('authTitle').textContent=signup?'Create your POS account':'Welcome back';$('authSubtitle').textContent=signup?'Create a cashier account to start using the POS.':'Sign in to open your POS counter.';$('nameField').classList.toggle('hidden',!signup);$('authSubmit').innerHTML=signup?'Create account <span>→</span>':'Sign in <span>→</span>';$('authSwitch').textContent=signup?'I already have an account':'Create a new account';$('authSwitch').dataset.signup=signup?'0':'1';$('authMessage').textContent='';$('authMessage').className='form-message'}
+$('authSwitch').onclick=()=>authMode($('authSwitch').dataset.signup==='1');
+$('authForm').onsubmit=async e=>{e.preventDefault();const signup=!$('nameField').classList.contains('hidden'),email=$('authEmail').value.trim(),password=$('authPassword').value,name=$('authName').value.trim()||'Cashier';$('authSubmit').disabled=true;$('authMessage').textContent='Connecting…';const r=signup?await db.auth.signUp({email,password,options:{data:{full_name:name}}}):await db.auth.signInWithPassword({email,password});$('authSubmit').disabled=false;if(r.error){$('authMessage').textContent=r.error.message;$('authMessage').className='form-message error';return}if(signup&&!r.data.session){$('authMessage').textContent='Account created. Check your email if confirmation is enabled.';$('authMessage').className='form-message success';return}if(r.data.session)boot(r.data.user)};
+async function boot(u){if(user?.id===u.id)return;user=u;$('authScreen').classList.add('hidden');$('appShell').classList.remove('hidden');try{await load();await profileLoad();setView(view)}catch(e){$('appView').innerHTML='<section class="panel empty-section"><div class="empty-icon">!</div><h2>Supabase setup required</h2><p>'+esc(e.message)+'<br><br>Run <b>supabase-schema.sql</b> in your Supabase SQL editor, then refresh.</p></section>'}}
+async function profileLoad(){let r=await db.from('profiles').select('*').eq('id',user.id).maybeSingle();if(r.error)throw r.error;if(!r.data){r=await db.from('profiles').insert({id:user.id,full_name:user.user_metadata?.full_name||'Cashier'}).select().single();if(r.error)throw r.error}profile=r.data;$('profileName').textContent=profile.full_name;$('profileRole').textContent=profile.role==='admin'?'Administrator':'Cashier';$('profileAvatar').textContent=initials(profile.full_name)}
+async function load(){const [p,c,cu,s]=await Promise.all([db.from('products').select('*,categories(name)').eq('active',true).order('name'),db.from('categories').select('*').order('name'),db.from('customers').select('*').order('name'),db.from('sales').select('*,customers(name)').order('created_at',{ascending:false}).limit(200)]);for(const x of [p,c,cu,s])if(x.error)throw x.error;products=p.data||[];categories=c.data||[];customers=cu.data||[];sales=s.data||[]}
+function setView(v){view=v;document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===v));const t={dashboard:['Sales Dashboard','Today at a glance'],sale:['New Sale','Create and complete a customer bill'],products:['Products','Manage catalog'],inventory:['Inventory','Stock levels and adjustments'],customers:['Customers','Customer records'],reports:['Reports','Sales performance'],settings:['Settings','Store and account']};$('pageTitle').textContent=(t[v]||t.dashboard)[0];$('pageSubtitle').textContent=(t[v]||t.dashboard)[1];({dashboard:renderDashboard,sale:renderSale,products:renderProducts,inventory:renderInventory,customers:renderCustomers,reports:renderReports,settings:renderSettings}[v]||renderDashboard)();$('sidebar').classList.remove('open')}
+$('nav').onclick=e=>{const b=e.target.closest('[data-view]');if(b)setView(b.dataset.view)};document.querySelector('.sidebar-bottom').onclick=e=>{const b=e.target.closest('[data-view]');if(b)setView(b.dataset.view)};$('topNewSale').onclick=()=>setView('sale');$('refreshBtn').onclick=async()=>{try{await load();setView(view);toast('Data refreshed')}catch(e){toast(e.message)}};$('mobileMenu').onclick=()=> $('sidebar').classList.toggle('open');$('signOutBtn').onclick=()=>db.auth.signOut();
 
-function money(value){ return "₹" + value.toLocaleString("en-IN"); }
+function transactionTable(rows){return '<div class="table-wrap"><table><thead><tr><th>Invoice</th><th>Customer</th><th>Amount</th><th>Method</th><th>Status</th></tr></thead><tbody>'+rows.map(s=>'<tr><td><strong>'+esc(s.invoice_no)+'</strong></td><td>'+esc(s.customers?.name||'Walk-in')+'</td><td>'+money(s.total)+'</td><td>'+esc(s.payment_method)+'</td><td><span class="status '+(s.status==='Paid'?'paid':'pending')+'">'+esc(s.status)+'</span></td></tr>').join('')+'</tbody></table></div>'}
+function renderDashboard(){const start=new Date();start.setHours(0,0,0,0);const today=sales.filter(s=>new Date(s.created_at)>=start&&s.status==='Paid'),revenue=today.reduce((a,s)=>a+Number(s.total),0),low=products.filter(p=>p.stock<=p.low_stock_threshold),avg=today.length?revenue/today.length:0;$('appView').innerHTML='<section class="stats-grid"><article class="stat-card"><div class="stat-head"><span>Today\\'s Sales</span><span class="stat-icon">₹</span></div><div class="stat-value">'+money(revenue)+'</div><div class="trend positive">'+today.length+' paid transactions</div></article><article class="stat-card"><div class="stat-head"><span>Transactions</span><span class="stat-icon">#</span></div><div class="stat-value">'+today.length+'</div><div class="trend positive">Live from Supabase</div></article><article class="stat-card"><div class="stat-head"><span>Avg. Order Value</span><span class="stat-icon">◈</span></div><div class="stat-value">'+money(avg)+'</div><div class="trend positive">Per completed sale</div></article><article class="stat-card"><div class="stat-head"><span>Low Stock</span><span class="stat-icon warning">!</span></div><div class="stat-value">'+low.length+'</div><div class="trend warning-text">Needs attention</div></article></section><section class="lower-grid"><div class="panel table-panel"><div class="panel-header compact"><div><h2>Recent Transactions</h2><p>Latest saved invoices</p></div><button class="text-btn" id="dashReports">View reports →</button></div>'+transactionTable(sales.slice(0,8))+'</div><div class="panel stock-panel"><div class="panel-header compact"><div><h2>Stock Alerts</h2><p>Products below threshold</p></div><span class="alert-count">'+low.length+' alerts</span></div><div class="stock-list">'+(low.slice(0,8).map(p=>'<div class="stock-row"><div class="product-mini">'+esc(initials(p.name))+'</div><div class="stock-copy"><strong>'+esc(p.name)+'</strong><span>'+esc(p.sku)+'</span></div><span class="stock-low">'+p.stock+' left</span></div>').join('')||'<div class="empty-mini">All stock levels are healthy.</div>')+'</div></div></section>';$('dashReports').onclick=()=>setView('reports')}
 
-function showToast(message){
-  toast.textContent = message;
-  toast.classList.add("show");
-  clearTimeout(showToast.timer);
-  showToast.timer = setTimeout(()=>toast.classList.remove("show"),2200);
-}
+function renderSale(){$('appView').innerHTML='<section class="workspace"><div class="catalog-panel panel"><div class="panel-header"><div><h2>Quick Sale</h2><p>Add products to the bill.</p></div><label class="search-box"><span>⌕</span><input id="saleSearch" placeholder="Search products or SKU..."><kbd>Ctrl K</kbd></label></div><div class="category-row" id="saleCats"><button class="category active" data-cat="All">All</button>'+categories.map(c=>'<button class="category" data-cat="'+esc(c.name)+'">'+esc(c.name)+'</button>').join('')+'</div><div class="product-grid" id="saleGrid"></div></div><aside class="cart-panel panel" id="cartPanel"></aside></section>';$('saleSearch').oninput=renderSaleProducts;$('saleCats').onclick=e=>{const b=e.target.closest('[data-cat]');if(!b)return;activeCat=b.dataset.cat;document.querySelectorAll('[data-cat]').forEach(x=>x.classList.toggle('active',x===b));renderSaleProducts()};renderSaleProducts();renderCart()}
+function renderSaleProducts(){const q=($('saleSearch')?.value||'').toLowerCase(),list=products.filter(p=>(activeCat==='All'||p.categories?.name===activeCat)&&(!q||p.name.toLowerCase().includes(q)||p.sku.toLowerCase().includes(q)));$('saleGrid').innerHTML=list.map(p=>'<article class="product"><div class="product-image">'+esc(initials(p.name))+'</div><div class="product-name" title="'+esc(p.name)+'">'+esc(p.name)+'</div><div class="product-meta">'+esc(p.sku)+' • '+esc(p.categories?.name||'Uncategorized')+'</div><div class="product-bottom"><div><div class="product-price">'+money(p.price)+'</div><div class="product-stock '+(p.stock<=p.low_stock_threshold?'stock-critical':'')+'">'+p.stock+' in stock</div></div><button class="add-btn" data-add="'+p.id+'">+</button></div></article>').join('')||'<div class="empty-mini" style="grid-column:1/-1">No products found.</div>';document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>addCart(b.dataset.add))}
+function addCart(id){const p=products.find(x=>x.id===id),q=cart[id]||0;if(!p)return;if(q>=p.stock){toast('Stock limit reached');return}cart[id]=q+1;renderCart()}
+function calc(){let subtotal=0,gst=0,count=0;Object.keys(cart).forEach(id=>{const p=products.find(x=>x.id===id),q=cart[id];if(!p)return;subtotal+=Number(p.price)*q;gst+=Number(p.price)*q*Number(p.gst_rate||0)/100;count+=q});const d=Math.min(Number(discount)||0,subtotal),factor=subtotal?Math.max(0,subtotal-d)/subtotal:0;gst*=factor;return{subtotal,discount:d,gst,total:Math.max(0,subtotal-d)+gst,count}}
+function renderCart(){const t=calc(),ids=Object.keys(cart);$('cartPanel').innerHTML='<div class="cart-header"><div><h2>Current Bill</h2><p>'+t.count+' items</p></div><button class="text-btn" id="clearCart">Clear all</button></div><div class="customer-strip"><div class="customer-avatar">'+esc(initials(customer?.name||'Walk-in'))+'</div><div class="customer-copy"><strong>'+esc(customer?.name||'Walk-in Customer')+'</strong><span id="pickCustomer">+ Select customer</span></div><button class="icon-btn small" id="customerBtn">›</button></div><div class="cart-items">'+(ids.length?ids.map(id=>{const p=products.find(x=>x.id===id),q=cart[id];return '<div class="cart-line"><div class="line-thumb">'+esc(initials(p.name))+'</div><div class="line-copy"><strong>'+esc(p.name)+'</strong><span>'+money(p.price)+' each</span><div class="qty"><button data-dec="'+id+'">−</button><span>'+q+'</span><button data-inc="'+id+'">+</button></div></div><div class="line-price"><strong>'+money(Number(p.price)*q)+'</strong><button class="remove" data-rem="'+id+'">×</button></div></div>'}).join(''):'<div class="empty-state"><div class="empty-icon">🛒</div><strong>Your cart is empty</strong><span>Add products from the catalog.</span></div>')+'</div><div class="bill-summary"><div><span>Subtotal</span><strong>'+money(t.subtotal)+'</strong></div><div><span>Discount</span><button class="discount-btn" id="discountBtn">'+(t.discount?money(t.discount):'Add discount')+'</button></div><div><span>GST</span><strong>'+money(t.gst)+'</strong></div><div class="total-row"><span>Total</span><strong>'+money(t.total)+'</strong></div></div><div class="payment-methods"><span class="section-label">Payment method</span><div class="payment-grid">'+['Cash','UPI','Card'].map(m=>'<button class="payment '+(payment===m?'active':'')+'" data-pay="'+m+'">'+m+'</button>').join('')+'</div></div><button class="checkout-btn" id="checkoutBtn" '+(!ids.length?'disabled':'')+'>Complete Payment <span>→</span></button>';$('clearCart').onclick=()=>{cart={};discount=0;renderCart()};$('customerBtn').onclick=$('pickCustomer').onclick=openCustomerPicker;$('discountBtn').onclick=()=>{const v=Number(prompt('Discount amount in ₹',discount||50));if(Number.isFinite(v)&&v>=0){discount=v;renderCart()}};document.querySelectorAll('[data-dec]').forEach(b=>b.onclick=()=>{cart[b.dataset.dec]--;if(cart[b.dataset.dec]<=0)delete cart[b.dataset.dec];renderCart()});document.querySelectorAll('[data-inc]').forEach(b=>b.onclick=()=>addCart(b.dataset.inc));document.querySelectorAll('[data-rem]').forEach(b=>b.onclick=()=>{delete cart[b.dataset.rem];renderCart()});document.querySelectorAll('[data-pay]').forEach(b=>b.onclick=()=>{payment=b.dataset.pay;renderCart()});$('checkoutBtn').onclick=checkout}
+function openCustomerPicker(){modal('<div class="modal-head"><div><h2>Select Customer</h2><p>Choose a customer for this bill.</p></div><button class="modal-close" id="mc">×</button></div><input class="modal-search" id="cs" placeholder="Search name or phone"><div class="customer-options"><button class="customer-option" data-c="">Walk-in Customer</button>'+customers.map(c=>'<button class="customer-option" data-c="'+c.id+'"><strong>'+esc(c.name)+'</strong><span>'+esc(c.phone||'No phone')+'</span></button>').join('')+'</div>');$('mc').onclick=closeModal;$('cs').oninput=e=>document.querySelectorAll('.customer-option').forEach(b=>b.style.display=b.textContent.toLowerCase().includes(e.target.value.toLowerCase())?'flex':'none');document.querySelectorAll('.customer-option').forEach(b=>b.onclick=()=>{customer=customers.find(c=>c.id===b.dataset.c)||null;closeModal();renderCart()})}
+async function checkout(){const ids=Object.keys(cart),t=calc();if(!ids.length)return;const invoice='RF-'+Date.now().toString().slice(-10),s=await db.from('sales').insert({invoice_no:invoice,customer_id:customer?.id||null,cashier_id:user.id,payment_method:payment,subtotal:t.subtotal,discount:t.discount,gst:t.gst,total:t.total,status:'Paid'}).select().single();if(s.error){toast(s.error.message);return}const rows=ids.map(id=>{const p=products.find(x=>x.id===id);return{sale_id:s.data.id,product_id:id,product_name:p.name,sku:p.sku,quantity:cart[id],unit_price:p.price,gst_rate:p.gst_rate,line_total:Number(p.price)*cart[id]}}),si=await db.from('sale_items').insert(rows);if(si.error){await db.from('sales').delete().eq('id',s.data.id);toast(si.error.message);return}for(const id of ids){const p=products.find(x=>x.id===id),r=await db.from('products').update({stock:Number(p.stock)-cart[id],updated_at:new Date().toISOString()}).eq('id',id);if(r.error)toast('Stock update failed for '+p.name)}cart={};discount=0;customer=null;await load();showReceipt(s.data,rows,t);renderSale()}
+function showReceipt(s,rows,t){modal('<div class="receipt"><div class="receipt-brand">RetailFlow</div><h2>City Mart</h2><p>Chittoor • Counter 01</p><hr><div class="receipt-row"><span>Invoice</span><strong>'+esc(s.invoice_no)+'</strong></div><div class="receipt-row"><span>Date</span><span>'+new Date(s.created_at).toLocaleString('en-IN')+'</span></div><hr>'+rows.map(i=>'<div class="receipt-row"><span>'+esc(i.product_name)+' × '+i.quantity+'</span><strong>'+money(i.line_total)+'</strong></div>').join('')+'<hr><div class="receipt-row"><span>Subtotal</span><span>'+money(t.subtotal)+'</span></div><div class="receipt-row"><span>Discount</span><span>- '+money(t.discount)+'</span></div><div class="receipt-row"><span>GST</span><span>'+money(t.gst)+'</span></div><div class="receipt-total"><span>Total</span><strong>'+money(t.total)+'</strong></div><div class="receipt-actions"><button class="outline-btn" id="rc">Close</button><button class="checkout-btn" id="pr">Print Receipt</button></div></div>');$('rc').onclick=closeModal;$('pr').onclick=()=>window.print()}
 
-function renderProducts(){
-  const q = searchInput.value.trim().toLowerCase();
-  const visible = products.filter(p =>
-    (activeCategory === "All" || p.category === activeCategory) &&
-    (!q || [p.name,p.sku,p.category].some(v=>v.toLowerCase().includes(q)))
-  );
-
-  productGrid.innerHTML = visible.length ? visible.map(p => `
-    <article class="product">
-      <div class="product-image ${p.className}">${p.tag}</div>
-      <div class="product-name" title="${p.name}">${p.name}</div>
-      <div class="product-meta">${p.sku} • ${p.category}</div>
-      <div class="product-bottom">
-        <div><div class="product-price">${money(p.price)}</div><div class="product-stock">${p.stock} in stock</div></div>
-        <button class="add-btn" data-add="${p.id}" aria-label="Add ${p.name}">+</button>
-      </div>
-    </article>`
-  ).join("") : '<div style="grid-column:1/-1;padding:40px;text-align:center;color:#8b91a0;font-size:12px">No products found.</div>';
-
-  productGrid.querySelectorAll("[data-add]").forEach(btn=>{
-    btn.addEventListener("click",()=>addToCart(Number(btn.dataset.add)));
-  });
-}
-
-function addToCart(id){
-  const item = products.find(p=>p.id===id);
-  if(!item) return;
-  const current = cart.get(id) || 0;
-  if(current >= item.stock){ showToast("Stock limit reached for this item."); return; }
-  cart.set(id,current+1);
-  renderCart();
-  showToast(item.name + " added");
-}
-
-function updateQty(id,delta){
-  const next = (cart.get(id)||0) + delta;
-  const item = products.find(p=>p.id===id);
-  if(next <= 0) cart.delete(id);
-  else if(next > item.stock) showToast("Not enough stock available.");
-  else cart.set(id,next);
-  renderCart();
-}
-
-function renderCart(){
-  const empty = document.getElementById("emptyState");
-  const entries = [...cart.entries()];
-  let subtotal = 0;
-  let count = 0;
-
-  if(!entries.length){
-    cartItems.innerHTML = '<div class="empty-state" id="emptyState"><div class="empty-icon">🛒</div><strong>Your cart is empty</strong><span>Add products from the left to start a sale.</span></div>';
-  } else {
-    cartItems.innerHTML = entries.map(([id,qty])=>{
-      const p = products.find(x=>x.id===id);
-      subtotal += p.price * qty;
-      count += qty;
-      return `
-        <div class="cart-line">
-          <div class="line-thumb ${p.className}">${p.tag}</div>
-          <div class="line-copy">
-            <strong>${p.name}</strong>
-            <span>${money(p.price)} each</span>
-            <div class="qty"><button data-dec="${id}">−</button><span>${qty}</span><button data-inc="${id}">+</button></div>
-          </div>
-          <div class="line-price">
-            <strong>${money(p.price*qty)}</strong>
-            <button class="remove" data-remove="${id}" title="Remove">×</button>
-          </div>
-        </div>`;
-    }).join("");
-
-    cartItems.querySelectorAll("[data-dec]").forEach(b=>b.onclick=()=>updateQty(Number(b.dataset.dec),-1));
-    cartItems.querySelectorAll("[data-inc]").forEach(b=>b.onclick=()=>updateQty(Number(b.dataset.inc),1));
-    cartItems.querySelectorAll("[data-remove]").forEach(b=>b.onclick=()=>{cart.delete(Number(b.dataset.remove));renderCart();});
-  }
-
-  const gst = Math.round(Math.max(subtotal-discount,0) * 0.05);
-  const total = Math.max(subtotal-discount,0) + gst;
-  document.getElementById("itemCountLabel").textContent = count + (count===1 ? " item" : " items");
-  document.getElementById("subtotal").textContent = money(subtotal);
-  document.getElementById("gst").textContent = money(gst);
-  document.getElementById("total").textContent = money(total);
-}
-
-document.querySelectorAll(".category").forEach(btn=>{
-  btn.addEventListener("click",()=>{
-    activeCategory = btn.dataset.category;
-    document.querySelectorAll(".category").forEach(b=>b.classList.toggle("active",b===btn));
-    renderProducts();
-  });
-});
-
-document.querySelectorAll(".payment").forEach(btn=>{
-  btn.addEventListener("click",()=>{
-    payment = btn.dataset.payment;
-    document.querySelectorAll(".payment").forEach(b=>b.classList.toggle("active",b===btn));
-  });
-});
-
-searchInput.addEventListener("input",renderProducts);
-document.getElementById("clearCart").addEventListener("click",()=>{cart.clear();discount=0;renderCart();showToast("Cart cleared");});
-document.getElementById("discountBtn").addEventListener("click",()=>{
-  if(!cart.size){showToast("Add a product before applying a discount.");return;}
-  const value = Number(prompt("Enter discount amount in ₹", discount || "50"));
-  if(Number.isFinite(value) && value >= 0){discount=value;renderCart();showToast("Discount applied");}
-});
-document.getElementById("checkoutBtn").addEventListener("click",()=>{
-  if(!cart.size){showToast("Add products to create a bill.");return;}
-  const total = document.getElementById("total").textContent;
-  showToast("Payment of " + total + " via " + payment + " completed");
-  cart.clear();discount=0;renderCart();
-});
-document.getElementById("newSaleBtn").addEventListener("click",()=>document.getElementById("searchInput").focus());
-document.getElementById("mobileMenu").addEventListener("click",()=>document.getElementById("sidebar").classList.toggle("open"));
-document.addEventListener("keydown",e=>{
-  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="k"){e.preventDefault();searchInput.focus();}
-});
-renderProducts();
-renderCart();
+function renderProducts(){$('appView').innerHTML='<section class="panel table-panel"><div class="panel-header compact"><div><h2>Products</h2><p>'+products.length+' active products</p></div><button class="outline-btn" id="addP">+ Add Product</button></div><div class="table-wrap"><table><thead><tr><th>Name</th><th>SKU</th><th>Category</th><th>Price</th><th>GST</th><th>Stock</th><th></th></tr></thead><tbody>'+products.map(p=>'<tr><td><strong>'+esc(p.name)+'</strong></td><td>'+esc(p.sku)+'</td><td>'+esc(p.categories?.name||'—')+'</td><td>'+money(p.price)+'</td><td>'+p.gst_rate+'%</td><td>'+p.stock+'</td><td><button class="table-action" data-ep="'+p.id+'">Edit</button></td></tr>').join('')+'</tbody></table></div></section>';$('addP').onclick=()=>productForm();document.querySelectorAll('[data-ep]').forEach(b=>b.onclick=()=>productForm(products.find(p=>p.id===b.dataset.ep)))}
+function productForm(p){modal('<div class="modal-head"><div><h2>'+(p?'Edit Product':'Add Product')+'</h2><p>Catalog and stock details.</p></div><button class="modal-close" id="mc">×</button></div><form class="modal-form" id="pf"><label>Name<input name="name" required value="'+esc(p?.name||'')+'"></label><label>SKU<input name="sku" required value="'+esc(p?.sku||'')+'"></label><label>Category<select name="category_id">'+categories.map(c=>'<option value="'+c.id+'" '+(p?.category_id===c.id?'selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select></label><div class="form-two"><label>Price<input name="price" type="number" min="0" step="0.01" value="'+Number(p?.price||0)+'" required></label><label>GST %<input name="gst_rate" type="number" min="0" max="100" step="0.01" value="'+Number(p?.gst_rate||5)+'"></label></div><label>Stock<input name="stock" type="number" min="0" value="'+Number(p?.stock||0)+'" required></label><button class="checkout-btn">Save Product <span>→</span></button></form>');$('mc').onclick=closeModal;$('pf').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),payload={name:f.get('name'),sku:f.get('sku'),category_id:f.get('category_id')||null,price:Number(f.get('price')),gst_rate:Number(f.get('gst_rate')),stock:Number(f.get('stock')),updated_at:new Date().toISOString()},r=p?await db.from('products').update(payload).eq('id',p.id):await db.from('products').insert(payload);if(r.error){toast(r.error.message);return}closeModal();await load();renderProducts();toast(p?'Product updated':'Product added')}}
+function renderInventory(){$('appView').innerHTML='<section class="panel table-panel"><div class="panel-header compact"><div><h2>Inventory</h2><p>Adjust current stock.</p></div><span class="alert-count">'+products.filter(p=>p.stock<=p.low_stock_threshold).length+' low stock</span></div><div class="table-wrap"><table><thead><tr><th>Product</th><th>SKU</th><th>Current</th><th>Threshold</th><th>Adjust</th></tr></thead><tbody>'+products.map(p=>'<tr><td><strong>'+esc(p.name)+'</strong></td><td>'+esc(p.sku)+'</td><td><span class="'+(p.stock<=p.low_stock_threshold?'stock-critical':'stock-ok')+'">'+p.stock+'</span></td><td>'+p.low_stock_threshold+'</td><td><div class="adjuster"><button data-sm="'+p.id+'">−</button><input id="si-'+p.id+'" type="number" min="0" value="'+p.stock+'"><button data-sp="'+p.id+'">+</button><button class="table-action" data-ss="'+p.id+'">Save</button></div></td></tr>').join('')+'</tbody></table></div></section>';document.querySelectorAll('[data-sm]').forEach(b=>b.onclick=()=>{$('si-'+b.dataset.sm).value=Math.max(0,Number($('si-'+b.dataset.sm).value)-1)});document.querySelectorAll('[data-sp]').forEach(b=>b.onclick=()=>{$('si-'+b.dataset.sp).value=Number($('si-'+b.dataset.sp).value)+1});document.querySelectorAll('[data-ss]').forEach(b=>b.onclick=async()=>{const id=b.dataset.ss,val=Number($('si-'+id).value),r=await db.from('products').update({stock:val,updated_at:new Date().toISOString()}).eq('id',id);if(r.error){toast(r.error.message);return}await load();renderInventory();toast('Stock updated')})}
+function renderCustomers(){$('appView').innerHTML='<section class="panel table-panel"><div class="panel-header compact"><div><h2>Customers</h2><p>'+customers.length+' saved records</p></div><button class="outline-btn" id="addC">+ Add Customer</button></div><div class="table-wrap"><table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Address</th></tr></thead><tbody>'+customers.map(c=>'<tr><td><strong>'+esc(c.name)+'</strong></td><td>'+esc(c.phone||'—')+'</td><td>'+esc(c.email||'—')+'</td><td>'+esc(c.address||'—')+'</td></tr>').join('')+'</tbody></table></div></section>';$('addC').onclick=customerForm}
+function customerForm(){modal('<div class="modal-head"><div><h2>Add Customer</h2><p>Save customer information.</p></div><button class="modal-close" id="mc">×</button></div><form id="cf" class="modal-form"><label>Name<input name="name" required></label><label>Phone<input name="phone"></label><label>Email<input name="email" type="email"></label><label>Address<textarea name="address" rows="3"></textarea></label><button class="checkout-btn">Save Customer <span>→</span></button></form>');$('mc').onclick=closeModal;$('cf').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),r=await db.from('customers').insert({name:f.get('name'),phone:f.get('phone')||null,email:f.get('email')||null,address:f.get('address')||null});if(r.error){toast(r.error.message);return}closeModal();await load();renderCustomers();toast('Customer saved')}}
+function renderReports(){const paid=sales.filter(s=>s.status==='Paid'),total=paid.reduce((a,s)=>a+Number(s.total),0);const cards=['Cash','UPI','Card'].map(m=>{const x=paid.filter(s=>s.payment_method===m);return'<div class="report-bar"><div><strong>'+m+'</strong><span>'+x.length+' transactions</span></div><strong>'+money(x.reduce((a,s)=>a+Number(s.total),0))+'</strong></div>'}).join('');$('appView').innerHTML='<section class="stats-grid"><article class="stat-card"><div class="stat-head"><span>Total Sales</span><span class="stat-icon">₹</span></div><div class="stat-value">'+money(total)+'</div><div class="trend positive">'+paid.length+' paid invoices</div></article><article class="stat-card"><div class="stat-head"><span>Products</span><span class="stat-icon">◫</span></div><div class="stat-value">'+products.length+'</div></article><article class="stat-card"><div class="stat-head"><span>Customers</span><span class="stat-icon">◉</span></div><div class="stat-value">'+customers.length+'</div></article><article class="stat-card"><div class="stat-head"><span>Low Stock</span><span class="stat-icon warning">!</span></div><div class="stat-value">'+products.filter(p=>p.stock<=p.low_stock_threshold).length+'</div></article></section><section class="lower-grid"><div class="panel table-panel"><div class="panel-header compact"><div><h2>Payment Breakdown</h2><p>Paid sales by method</p></div></div>'+cards+'</div><div class="panel table-panel"><div class="panel-header compact"><div><h2>Recent Invoices</h2><p>Latest records</p></div><button class="text-btn" id="csv">Export CSV</button></div>'+transactionTable(sales)+'</div></section>';$('csv').onclick=exportCsv}
+function exportCsv(){const rows=[['Invoice','Customer','Amount','Payment','Status','Date'],...sales.map(s=>[s.invoice_no,s.customers?.name||'Walk-in',s.total,s.payment_method,s.status,new Date(s.created_at).toISOString()])];const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='retailflow-sales.csv';a.click()}
+function renderSettings(){$('appView').innerHTML='<section class="lower-grid"><div class="panel table-panel"><div class="panel-header compact"><div><h2>Store</h2><p>Receipt settings</p></div></div><div class="settings-list"><div><span>Name</span><strong>City Mart</strong></div><div><span>Location</span><strong>Chittoor, Andhra Pradesh</strong></div><div><span>Counter</span><strong>Counter 01</strong></div><div><span>Currency</span><strong>Indian Rupee (₹)</strong></div><div><span>Tax</span><strong>GST enabled</strong></div></div></div><div class="panel table-panel"><div class="panel-header compact"><div><h2>Account</h2><p>Signed-in operator</p></div></div><div class="settings-list"><div><span>Name</span><strong>'+esc(profile?.full_name)+'</strong></div><div><span>Role</span><strong>'+esc(profile?.role)+'</strong></div><div><span>Email</span><strong>'+esc(user?.email)+'</strong></div></div></div></section>'}
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('saleSearch')?.focus()}});
+authMode(false);
+(async()=>{const r=await db.auth.getSession();if(r.data.session)await boot(r.data.session.user)})();
+db.auth.onAuthStateChange((_e,s)=>{if(s)boot(s.user);else{user=null;$('appShell').classList.add('hidden');$('authScreen').classList.remove('hidden')}});
