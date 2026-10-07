@@ -21,7 +21,8 @@
     const title = byId("authTitle");
     const subtitle = byId("authSubtitle");
     const submit = byId("authSubmit");
-    const switchBtn = byId("authSwitch");
+    const resendBtn = byId("resendVerification");
+  const switchBtn = byId("authSwitch");
     if (!nameField || !title || !subtitle || !submit || !switchBtn) return;
     nameField.classList.toggle("hidden", !signupMode);
     title.textContent = signupMode ? "Create your POS account" : "Welcome back";
@@ -31,6 +32,7 @@
     submit.innerHTML = signupMode ? "Create account <span>→</span>" : "Sign in <span>→</span>";
     switchBtn.textContent = signupMode ? "I already have an account" : "Create a new account";
     switchBtn.type = "button";
+    if (resendBtn) resendBtn.classList.add("hidden");
     setMessage("");
   };
 
@@ -77,10 +79,8 @@
             setMessage("Account created. Opening your POS…", "success");
             if (typeof window.boot === "function") await window.boot(result.data.user);
           } else {
-            setMessage(
-              "Account created successfully. Check your email and click the confirmation link, then sign in.",
-              "success"
-            );
+            setMessage("Account exists but still needs email verification. Check your inbox/spam, or resend the verification email below.", "success");
+            if (resendBtn) resendBtn.classList.remove("hidden");
           }
         } else {
           const result = await client.auth.signInWithPassword({ email, password });
@@ -98,6 +98,27 @@
       } finally {
         submit.disabled = false;
       }
+    };
+  }
+
+  if (resendBtn) {
+    resendBtn.onclick = async () => {
+      const email = byId("authEmail").value.trim();
+      if (!email) { setMessage("Enter your email address first.", "error"); return; }
+      resendBtn.disabled = true;
+      setMessage("Sending a new verification email…");
+      try {
+        const result = await client.auth.resend({
+          type: "signup",
+          email,
+          options: { emailRedirectTo: AUTH_REDIRECT_URL }
+        });
+        if (result.error) throw result.error;
+        setMessage("A new verification email has been requested. Check your inbox and spam folder.", "success");
+      } catch (error) {
+        console.error("RetailFlow resend verification error:", error);
+        setMessage(error?.message || "Could not resend the verification email.", "error");
+      } finally { resendBtn.disabled = false; }
     };
   }
 
