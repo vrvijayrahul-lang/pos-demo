@@ -78,8 +78,11 @@
           if (result.data.session) {
             setMessage("Account created. Opening your POS…", "success");
             if (typeof window.boot === "function") await window.boot(result.data.user);
+          } else if (result.data.user?.identities && result.data.user.identities.length === 0) {
+            setMessage("This account already exists. If you have already verified your email, switch to Sign in and log in.", "success");
+            if (resendBtn) resendBtn.classList.add("hidden");
           } else {
-            setMessage("Account exists but still needs email verification. Check your inbox/spam, or resend the verification email below.", "success");
+            setMessage("Account created. Check your inbox/spam for the verification email. If it does not arrive, use Resend verification email.", "success");
             if (resendBtn) resendBtn.classList.remove("hidden");
           }
         } else {
